@@ -53,7 +53,7 @@ CRWidget *registry_get(CRRegistry *r, const char *name) {
 
   CRWidget *w = NULL;
   if (r->table[place]) {
-    CRRegistryCell *root;
+    CRRegistryCell *root = r->table[place];
     while (root && SDL_strcmp(root->name, name) != 0) {
       root = root->next;
     }

@@ -3,6 +3,7 @@
 #include "include/cr.h"
 #include "include/input.h"
 #include "include/page.h"
+#include "include/widget_list.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
@@ -21,24 +22,23 @@ void widget_render(void *_app, CRWidget *widget, bool parent_rendered) {
     }
     break;
   case WidgetInput: {
-    if (widget->state.raw != widget->previous_state || parent_rendered) {
+    if (widget_can_render(widget) || parent_rendered) {
       input_render(app, (CRInput *)widget);
     }
   } break;
   default: {
-    if (widget->state.raw != widget->previous_state || parent_rendered) {
+    if (widget_can_render(widget) || parent_rendered) {
       if (widget->render) {
         widget->render(app, widget);
       }
-    }
-    for (int i = 0; i < widget->children_count; i++) {
-      widget_render(app, widget->children[i],
-                    widget->state.raw == widget->previous_state);
+      for (int i = 0; i < widget->children_count; i++) {
+        widget_render(app, widget->children[i], widget_can_render(widget));
+      }
     }
   } break;
   }
   /* keep the state at the rendering */
-  widget->previous_state = widget->state.raw;
+  widget->previous_state.raw = widget->state.raw;
 }
 
 void _widget_grow_children(CRWidget *w) {
@@ -107,8 +107,9 @@ CRWidget *widget_new(void *_app, CRWidget *parent, enum CRWidgetTypes type,
   default:
     break;
   }
-  n->state.raw = false;
-  n->previous_state = false;
+
+  n->state = CR_WIDGET_CREATED_STATE;
+  n->previous_state.raw = 0;
   n->state.created = true;
   n->type = type;
   n->id = ++app->widgets_id;
@@ -122,75 +123,26 @@ bool widget_intersect(void *_app, CRWidget *w, float x, float y) {
          ((app->px * w->y) <= y) && (((w->y + w->height) * app->px) >= y);
 }
 
-void widget_free_list(void *_app, CRWidgetList *list) {
-  SDL_assert(_app != NULL);
-  SDL_assert(list != NULL);
-  CRApp *app = _app;
-
-  if (app->current[CR_FREE_QUEUE]) {
-    for (CRWidgetList *item = list; item;) {
-      CRWidgetList *next = item->next;
-      item->w = NULL;
-      item->previous = NULL;
-      item->next = app->current[CR_FREE_QUEUE];
-      app->current[CR_FREE_QUEUE]->previous = item;
-      app->current[CR_FREE_QUEUE] = item;
-      item = next;
-    }
-  } else {
-    app->current[CR_FREE_QUEUE] = list;
-    for (CRWidgetList *item = list; item; item = item->next) {
-      item->w = NULL;
-    }
-  }
-}
-
-static CRWidgetList *_get_new_list_item(CRApp *app) {
-  CRWidgetList *item = NULL;
-  if (app->current[CR_FREE_QUEUE]) {
-    SDL_Log("new item from free list\n");
-    item = app->current[CR_FREE_QUEUE];
-    app->current[CR_FREE_QUEUE] = item->next;
-    if (app->current[CR_FREE_QUEUE]) {
-      app->current[CR_FREE_QUEUE]->previous = NULL;
-    }
-
-    item->previous = NULL;
-    item->next = NULL;
-    item->w = NULL;
-  } else {
-    SDL_Log("new item allocated\n");
-    item = SDL_calloc(1, sizeof(*item));
-  }
-
-  return item;
-}
-
 CRWidgetList *widget_get(void *_app, float x, float y) {
   SDL_assert(_app != NULL);
   CRApp *app = _app;
   CRWidget *w = app->root;
-  CRWidgetList *root = _get_new_list_item(app);
-  if (!root) {
+  CRWidgetList *root = NULL;
+  if (!widget_list_append(&root, app->root)) {
     return NULL;
   }
-  root->w = w;
-  CRWidgetList *item = root;
   while (w->children_count > 0) {
     int found = 0;
     for (int i = 0; i < w->children_count; i++) {
       CRWidget *_w = w->children[i];
-      if (widget_intersect(_app, _w, x, y)) {
-        item->next = _get_new_list_item(app);
-        if (!item->next) {
+      /* if the widget is not visible, it can't be acted upon */
+      if (widget_intersect(_app, _w, x, y) && widget_is_visible(_w)) {
+        if (!widget_list_append(&root, _w)) {
           return root;
         }
-        item->next->w = _w;
-        item->next->previous = item;
-        item = item->next;
+        w = _w;
+        found = 1;
       }
-      w = _w;
-      found = 1;
     }
     if (!found) {
       break;

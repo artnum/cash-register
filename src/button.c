@@ -12,14 +12,25 @@
 #include <stdio.h>
 
 void click(void *_app, void *_widget) {
+  CRApp *app = _app;
+
   CRButton *button = _widget;
-  printf("I am pressed %s\n", button->text);
+  CRWidget *mainpage = registry_get(&app->registry, "mainpage");
+  CRWidget *secondpage = registry_get(&app->registry, "secondpage");
+  SDL_Log("mainpage %p secondpage %p\n", mainpage, secondpage);
+  mainpage->state.active = !mainpage->state.active;
+  secondpage->state.active = !secondpage->state.active;
+  SDL_Log("CLICK p %d, s %d -> %d, %d\n", mainpage->id, secondpage->id,
+          mainpage->state.active, secondpage->state.active);
 }
 void trigger(void *_app, void *_widget) {
   CRApp *app = _app;
   CRButton *button = _widget;
   SDL_assert(app != NULL);
   SDL_assert(button != NULL);
+  if (button->w.state.clicked) {
+    click(app, button);
+  }
   SDL_Log("%d state changed\n", button->w.id);
 }
 

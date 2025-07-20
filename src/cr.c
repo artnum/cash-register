@@ -52,14 +52,27 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
   CRWidget *second_page = widget_new(app, app->root, WidgetPage, NULL);
   ((CRPage *)second_page)->background = COLOR_ORCHID;
   registry_register(&app->registry, "secondpage", second_page);
-  second_page->rendered = true;
+  second_page->state.active = false;
 
   CRWidget *n = widget_new(app, main_page, WidgetButton, NULL);
   n->x = 2;
   n->y = 2;
   n->height = 5;
   n->width = 5;
-  ((CRButton *)n)->text = "Bouton";
+  ((CRButton *)n)->text = "Next page >";
+  ((CRButton *)n)->colors[WidgetNormalState].background = COLOR_LINEN;
+  ((CRButton *)n)->colors[WidgetNormalState].text = COLOR_BLACK;
+  ((CRButton *)n)->colors[WidgetNormalState].border = COLOR_GOLDENROD;
+  ((CRButton *)n)->colors[WidgetPressedState].background = COLOR_CORAL;
+  ((CRButton *)n)->colors[WidgetPressedState].text = COLOR_BLACK;
+  ((CRButton *)n)->colors[WidgetPressedState].border = COLOR_GOLDENROD;
+
+  n = widget_new(app, second_page, WidgetButton, NULL);
+  n->x = 7;
+  n->y = 2;
+  n->height = 5;
+  n->width = 5;
+  ((CRButton *)n)->text = "< Previous page";
   ((CRButton *)n)->colors[WidgetNormalState].background = COLOR_LINEN;
   ((CRButton *)n)->colors[WidgetNormalState].text = COLOR_BLACK;
   ((CRButton *)n)->colors[WidgetNormalState].border = COLOR_GOLDENROD;
@@ -108,7 +121,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       item->w->state.clicked = false;
       item->w->state.pressed = false;
     }
-    widget_free_list(app, app->current[CR_MOUSE_CLICK_QUEUE]);
+    widget_list_free(app->current[CR_MOUSE_CLICK_QUEUE]);
     app->current[CR_MOUSE_CLICK_QUEUE] = NULL;
   }
   switch (event->type) {
