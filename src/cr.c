@@ -1,4 +1,6 @@
+#include "include/common.h"
 #include <SDL3/SDL_error.h>
+#include <SDL3/SDL_log.h>
 #include <stdio.h>
 #define SDL_MAIN_USE_CALLBACKS
 
@@ -66,6 +68,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
   ((CRButton *)n)->colors[WidgetPressedState].background = COLOR_CORAL;
   ((CRButton *)n)->colors[WidgetPressedState].text = COLOR_BLACK;
   ((CRButton *)n)->colors[WidgetPressedState].border = COLOR_GOLDENROD;
+  ((CRButton *)n)->colors[WidgetFocusSate].background = COLOR_RED;
+  ((CRButton *)n)->colors[WidgetFocusSate].text = COLOR_BLACK;
+  ((CRButton *)n)->colors[WidgetFocusSate].border = COLOR_PALEGREEN;
 
   n = widget_new(app, second_page, WidgetButton, NULL);
   n->x = 7;
@@ -79,6 +84,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
   ((CRButton *)n)->colors[WidgetPressedState].background = COLOR_CORAL;
   ((CRButton *)n)->colors[WidgetPressedState].text = COLOR_BLACK;
   ((CRButton *)n)->colors[WidgetPressedState].border = COLOR_GOLDENROD;
+  ((CRButton *)n)->colors[WidgetFocusSate].background = COLOR_RED;
+  ((CRButton *)n)->colors[WidgetFocusSate].text = COLOR_BLACK;
+  ((CRButton *)n)->colors[WidgetFocusSate].border = COLOR_PALEGREEN;
 
   return SDL_APP_CONTINUE;
 }
@@ -132,32 +140,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     events_mouse_up(app, event->motion.x, event->motion.y);
   } break;
   case SDL_EVENT_MOUSE_MOTION: {
-    if (app->current[CR_FOCUS_QUEUE]) {
-      CRWidgetList *rm = NULL;
-      for (CRWidgetList *item = app->current[CR_FOCUS_QUEUE]->next; item;) {
-        CRWidgetList *next = item->next;
-        if (!widget_intersect(app, item->w, event->motion.x, event->motion.y)) {
-          item->previous->next = NULL;
-          item->previous = NULL;
-          rm = item;
-          break;
-        }
-        item = next;
-      }
-      for (CRWidgetList *item = rm; item;) {
-        CRWidgetList *next = item->next;
-        item->w->state.raw = 0;
-        item->w->rendered = false;
-        SDL_free(item);
-        item = next;
-      }
-      if (!app->current[CR_FOCUS_QUEUE]->next) {
-        SDL_free(app->current);
-        app->current[CR_FOCUS_QUEUE] = NULL;
-      }
-    }
-    break;
-  }
+    event_focus(app, event->motion.x, event->motion.y);
+  } break;
   }
   return SDL_APP_CONTINUE;
 }

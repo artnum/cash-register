@@ -1,5 +1,4 @@
 #include "include/registry.h"
-#include "include/widget.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_stdinc.h>
 #include <xxhash.h>

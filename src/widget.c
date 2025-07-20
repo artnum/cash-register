@@ -31,10 +31,14 @@ void widget_render(void *_app, CRWidget *widget, bool parent_rendered) {
       if (widget->render) {
         widget->render(app, widget);
       }
+    }
+    /* render child of what visited in case a child has changed */
+    if (widget_is_visible(widget)) {
       for (int i = 0; i < widget->children_count; i++) {
         widget_render(app, widget->children[i], widget_can_render(widget));
       }
     }
+
   } break;
   }
   /* keep the state at the rendering */

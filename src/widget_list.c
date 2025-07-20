@@ -48,6 +48,13 @@ bool widget_list_append(CRWidgetList **list, CRWidget *widget) {
   SDL_assert(list != NULL);
   SDL_assert(widget != NULL);
 
+  /* don't happen twice */
+  for (CRWidgetList *i = *list; i; i = i->next) {
+    if (i->w->id == widget->id) {
+      return true;
+    }
+  }
+
   CRWidgetList *item = _get_new_list_item();
   if (!item) {
     return false;

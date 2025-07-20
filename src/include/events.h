@@ -5,4 +5,5 @@
 #include <SDL3/SDL_rect.h>
 void events_mouse_down(CRApp *app, float x, float y);
 void events_mouse_up(CRApp *app, float x, float y);
+void event_focus(CRApp *app, float x, float y);
 #endif /* EVENTS_H__ */

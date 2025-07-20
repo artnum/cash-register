@@ -31,7 +31,6 @@ void trigger(void *_app, void *_widget) {
   if (button->w.state.clicked) {
     click(app, button);
   }
-  SDL_Log("%d state changed\n", button->w.id);
 }
 
 CRButton *button_new() {
@@ -50,7 +49,9 @@ void button_render(void *_app, void *_w) {
   CRButton *button = _w;
 
   enum CRWidgetStates s =
-      button->w.state.pressed ? WidgetPressedState : WidgetNormalState;
+      button->w.state.pressed
+          ? WidgetPressedState
+          : (button->w.state.focused ? WidgetFocusSate : WidgetNormalState);
   if (button->colors[s].background == COLOR_NONE) {
     s = WidgetNormalState;
   }
