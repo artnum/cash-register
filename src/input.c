@@ -1,4 +1,5 @@
 #include "include/input.h"
+#include "include/cr.h"
 #include "include/widget.h"
 #include <SDL3/SDL_stdinc.h>
 
@@ -7,15 +8,18 @@ CRInput *input_new() {
   input = SDL_calloc(1, sizeof(*input));
   if (input) {
     input->w.type = WidgetButton;
+    input->w.render = input_render;
   }
   return input;
 }
 
-void input_render(CRApp *app, CRInput *input) {
+void input_render(void *_app, void *_w) {
+  CRApp *app = _app;
+  CRInput *input = _w;
   /* outer box, so border */
   {
-    SDL_FRect rect = {app->px * input->x, app->px * input->y,
-                      app->px * input->width, app->px * input->height};
+    SDL_FRect rect = {app->px * input->w.x, app->px * input->w.y,
+                      app->px * input->w.width, app->px * input->w.height};
 
     const SDL_Color *color = &COLORS[input->border_color];
     SDL_SetRenderDrawColor(app->renderer, color->r, color->g, color->b,
@@ -25,10 +29,10 @@ void input_render(CRApp *app, CRInput *input) {
 
   /* inner box */
   {
-    SDL_FRect rect = {(app->px * input->x) + app->border,
-                      (app->px * input->y) + app->border,
-                      (app->px * input->width) - (app->border * 2),
-                      (app->px * input->height) - (app->border * 2)};
+    SDL_FRect rect = {(app->px * input->w.x) + app->border,
+                      (app->px * input->w.y) + app->border,
+                      (app->px * input->w.width) - (app->border * 2),
+                      (app->px * input->w.height) - (app->border * 2)};
     const SDL_Color *color = &COLORS[input->color];
     SDL_SetRenderDrawColor(app->renderer, color->r, color->g, color->b,
                            color->a);
@@ -42,14 +46,15 @@ void input_render(CRApp *app, CRInput *input) {
 
     SDL_Surface *text = TTF_RenderText_Shaded_Wrapped(
         app->input_font, input->content, 0, *color, *bg_color,
-        input->width * app->px);
+        input->w.width * app->px);
     SDL_Texture *ttext = SDL_CreateTextureFromSurface(app->renderer, text);
     float w, h;
     SDL_GetTextureSize(ttext, &w, &h);
     SDL_FRect src = {0, 0, w, h};
     SDL_FRect dest = {
-        (app->px * input->x) + (app->px * input->width) - (app->border + w),
-        (app->px * input->y) + (input->height * app->px / 2) - (h / 2), w, h};
+        (app->px * input->w.x) + (app->px * input->w.width) - (app->border + w),
+        (app->px * input->w.y) + (input->w.height * app->px / 2) - (h / 2), w,
+        h};
     SDL_RenderTexture(app->renderer, ttext, NULL, &dest);
     SDL_DestroyTexture(ttext);
     SDL_DestroySurface(text);

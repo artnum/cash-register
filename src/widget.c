@@ -2,7 +2,9 @@
 #include "include/button.h"
 #include "include/cr.h"
 #include "include/input.h"
+#include "include/page.h"
 #include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
 
 #define WIDGET_CHILDREN_CHUNK 50
@@ -13,26 +15,30 @@ void widget_render(void *_app, CRWidget *widget, bool parent_rendered) {
     widget = app->root;
   }
   switch (widget->type) {
-  case WidgetPage:
   case WidgetRoot:
     for (int i = 0; i < widget->children_count; i++) {
       widget_render(app, widget->children[i], false);
     }
     break;
-  case WidgetInput:
-    if (!widget->rendered || parent_rendered) {
+  case WidgetInput: {
+    if (widget->state.raw != widget->previous_state || parent_rendered) {
       input_render(app, (CRInput *)widget);
-      widget->rendered = true;
     }
-  case WidgetButton:
-    if (!widget->rendered || parent_rendered) {
-      button_render(app, (CRButton *)widget);
-      widget->rendered = true;
+  } break;
+  default: {
+    if (widget->state.raw != widget->previous_state || parent_rendered) {
+      if (widget->render) {
+        widget->render(app, widget);
+      }
     }
-    break;
-  default:
-    break;
+    for (int i = 0; i < widget->children_count; i++) {
+      widget_render(app, widget->children[i],
+                    widget->state.raw == widget->previous_state);
+    }
+  } break;
   }
+  /* keep the state at the rendering */
+  widget->previous_state = widget->state.raw;
 }
 
 void _widget_grow_children(CRWidget *w) {
@@ -66,7 +72,8 @@ void widget_insert_child(CRWidget *parent, CRWidget *child) {
   child->parent = parent;
 }
 
-CRWidget *widget_new(void *_app, CRWidget *parent, enum CRWidgetTypes type) {
+CRWidget *widget_new(void *_app, CRWidget *parent, enum CRWidgetTypes type,
+                     void *params) {
   SDL_assert(_app != NULL);
   CRApp *app = _app;
   CRWidget *n = NULL;
@@ -74,7 +81,6 @@ CRWidget *widget_new(void *_app, CRWidget *parent, enum CRWidgetTypes type) {
   case WidgetRoot: {
     n = _widget_new_generic(type);
     app->root = n;
-    n->rendered = false;
     break;
   }
   case WidgetInput: {
@@ -86,15 +92,26 @@ CRWidget *widget_new(void *_app, CRWidget *parent, enum CRWidgetTypes type) {
   case WidgetButton: {
     n = (CRWidget *)button_new();
     widget_insert_child(parent, n);
-    n->rendered = false;
     break;
   }
-
+  case WidgetPage: {
+    n = (CRWidget *)page_new(app, params);
+    n->x = parent->x;
+    n->y = parent->y;
+    n->width = parent->width;
+    n->height = parent->height;
+    n->rendered = false;
+    widget_insert_child(parent, n);
+    break;
+  }
   default:
     break;
   }
-  n->state = WidgetNormalState;
+  n->state.raw = false;
+  n->previous_state = false;
+  n->state.created = true;
   n->type = type;
+  n->id = ++app->widgets_id;
   return n;
 }
 
@@ -105,11 +122,55 @@ bool widget_intersect(void *_app, CRWidget *w, float x, float y) {
          ((app->px * w->y) <= y) && (((w->y + w->height) * app->px) >= y);
 }
 
+void widget_free_list(void *_app, CRWidgetList *list) {
+  SDL_assert(_app != NULL);
+  SDL_assert(list != NULL);
+  CRApp *app = _app;
+
+  if (app->current[CR_FREE_QUEUE]) {
+    for (CRWidgetList *item = list; item;) {
+      CRWidgetList *next = item->next;
+      item->w = NULL;
+      item->previous = NULL;
+      item->next = app->current[CR_FREE_QUEUE];
+      app->current[CR_FREE_QUEUE]->previous = item;
+      app->current[CR_FREE_QUEUE] = item;
+      item = next;
+    }
+  } else {
+    app->current[CR_FREE_QUEUE] = list;
+    for (CRWidgetList *item = list; item; item = item->next) {
+      item->w = NULL;
+    }
+  }
+}
+
+static CRWidgetList *_get_new_list_item(CRApp *app) {
+  CRWidgetList *item = NULL;
+  if (app->current[CR_FREE_QUEUE]) {
+    SDL_Log("new item from free list\n");
+    item = app->current[CR_FREE_QUEUE];
+    app->current[CR_FREE_QUEUE] = item->next;
+    if (app->current[CR_FREE_QUEUE]) {
+      app->current[CR_FREE_QUEUE]->previous = NULL;
+    }
+
+    item->previous = NULL;
+    item->next = NULL;
+    item->w = NULL;
+  } else {
+    SDL_Log("new item allocated\n");
+    item = SDL_calloc(1, sizeof(*item));
+  }
+
+  return item;
+}
+
 CRWidgetList *widget_get(void *_app, float x, float y) {
   SDL_assert(_app != NULL);
   CRApp *app = _app;
   CRWidget *w = app->root;
-  CRWidgetList *root = SDL_calloc(1, sizeof(*root));
+  CRWidgetList *root = _get_new_list_item(app);
   if (!root) {
     return NULL;
   }
@@ -120,7 +181,7 @@ CRWidgetList *widget_get(void *_app, float x, float y) {
     for (int i = 0; i < w->children_count; i++) {
       CRWidget *_w = w->children[i];
       if (widget_intersect(_app, _w, x, y)) {
-        item->next = SDL_calloc(1, sizeof(*item));
+        item->next = _get_new_list_item(app);
         if (!item->next) {
           return root;
         }

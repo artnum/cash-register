@@ -6,10 +6,6 @@
 
 typedef struct {
   CRWidget w;
-  float x;
-  float y;
-  float width;
-  float height;
   enum Color color;
   enum Color border_color;
   enum Color text_color;
@@ -17,5 +13,5 @@ typedef struct {
 } CRInput;
 
 CRInput *input_new();
-void input_render(CRApp *app, CRInput *input);
+void input_render(void *_app, void *_w);
 #endif /* INPUT_H__ */

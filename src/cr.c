@@ -7,6 +7,9 @@
 #include "include/button.h"
 #include "include/color.h"
 #include "include/cr.h"
+#include "include/events.h"
+#include "include/page.h"
+#include "include/registry.h"
 #include "include/widget.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
@@ -20,7 +23,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     return SDL_APP_FAILURE;
   }
   *appstate = app;
-
+  registry_init(&app->registry);
   app->border = 0.8;
   app->px = 25.0;
   app->font = 18.0;
@@ -36,16 +39,26 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
   app->input_font = TTF_OpenFont("fonts/RobotoMono-SemiBold.ttf", app->font);
   TTF_SetFontHinting(app->main_font, TTF_HINTING_LIGHT_SUBPIXEL);
 
-  widget_new(app, NULL, WidgetRoot);
+  widget_new(app, NULL, WidgetRoot, NULL);
   app->root->x = 0;
   app->root->y = 0;
   app->root->width = 750 / app->px;
   app->root->height = 500 / app->px;
-  CRWidget *n = widget_new(app, app->root, WidgetButton);
-  n->x = 0;
-  n->y = 0;
-  n->height = 1;
-  n->width = 10;
+
+  CRWidget *main_page = widget_new(app, app->root, WidgetPage, NULL);
+  ((CRPage *)main_page)->background = COLOR_ANTIQUEWHITE;
+  registry_register(&app->registry, "mainpage", main_page);
+
+  CRWidget *second_page = widget_new(app, app->root, WidgetPage, NULL);
+  ((CRPage *)second_page)->background = COLOR_ORCHID;
+  registry_register(&app->registry, "secondpage", second_page);
+  second_page->rendered = true;
+
+  CRWidget *n = widget_new(app, main_page, WidgetButton, NULL);
+  n->x = 2;
+  n->y = 2;
+  n->height = 5;
+  n->width = 5;
   ((CRButton *)n)->text = "Bouton";
   ((CRButton *)n)->colors[WidgetNormalState].background = COLOR_LINEN;
   ((CRButton *)n)->colors[WidgetNormalState].text = COLOR_BLACK;
@@ -77,40 +90,38 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   return SDL_APP_CONTINUE;
 }
 
-void SDL_AppQuit(void *appstate, SDL_AppResult result) {}
+void SDL_AppQuit(void *appstate, SDL_AppResult result) {
+  CRApp *app = appstate;
+  SDL_assert(app != NULL);
+
+  registry_destroy(&app->registry);
+  SDL_free(app);
+}
+
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   CRApp *app = (CRApp *)appstate;
 
-  app->mouse_x = 0;
-  app->mouse_y = 0;
+  /* new event, clear previous events */
+  if (app->current[CR_MOUSE_CLICK_QUEUE]) {
+    for (CRWidgetList *item = app->current[CR_MOUSE_CLICK_QUEUE]; item;
+         item = item->next) {
+      item->w->state.clicked = false;
+      item->w->state.pressed = false;
+    }
+    widget_free_list(app, app->current[CR_MOUSE_CLICK_QUEUE]);
+    app->current[CR_MOUSE_CLICK_QUEUE] = NULL;
+  }
   switch (event->type) {
   case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-    CRWidgetList *list = widget_get(app, event->motion.x, event->motion.y);
-    for (CRWidgetList *item = list->next; item; item = item->next) {
-      item->w->state = WidgetPressedState;
-      item->w->rendered = false;
-    }
-    app->current = list;
-    break;
-  }
+    events_mouse_down(app, event->motion.x, event->motion.y);
+  } break;
   case SDL_EVENT_MOUSE_BUTTON_UP: {
-    if (app->current) {
-      for (CRWidgetList *item = app->current->next; item;) {
-        CRWidgetList *next = item->next;
-        item->w->state = WidgetNormalState;
-        item->w->rendered = false;
-        SDL_free(item);
-        item = next;
-      }
-      SDL_free(app->current);
-      app->current = NULL;
-    }
-    break;
-  }
+    events_mouse_up(app, event->motion.x, event->motion.y);
+  } break;
   case SDL_EVENT_MOUSE_MOTION: {
-    if (app->current) {
+    if (app->current[CR_FOCUS_QUEUE]) {
       CRWidgetList *rm = NULL;
-      for (CRWidgetList *item = app->current->next; item;) {
+      for (CRWidgetList *item = app->current[CR_FOCUS_QUEUE]->next; item;) {
         CRWidgetList *next = item->next;
         if (!widget_intersect(app, item->w, event->motion.x, event->motion.y)) {
           item->previous->next = NULL;
@@ -122,14 +133,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       }
       for (CRWidgetList *item = rm; item;) {
         CRWidgetList *next = item->next;
-        item->w->state = WidgetNormalState;
+        item->w->state.raw = 0;
         item->w->rendered = false;
         SDL_free(item);
         item = next;
       }
-      if (!app->current->next) {
+      if (!app->current[CR_FOCUS_QUEUE]->next) {
         SDL_free(app->current);
-        app->current = NULL;
+        app->current[CR_FOCUS_QUEUE] = NULL;
       }
     }
     break;

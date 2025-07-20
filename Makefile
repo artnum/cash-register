@@ -1,6 +1,6 @@
 NAME=cr
-CLFAGS=-DDEBUG `pkg-config --cflags sdl3 sdl3-ttf` -Wall -ggdb
-LIBS=`pkg-config --libs sdl3 sdl3-ttf` -ggdb
+CLFAGS=-DDEBUG `pkg-config --cflags sdl3 sdl3-ttf libxxhash` -Wall -ggdb
+LIBS=`pkg-config --libs sdl3 sdl3-ttf libxxhash` -ggdb
 SRCFILES=$(wildcard src/*.c)
 OBJFILES=$(addprefix build/, $(addsuffix .o,$(basename $(notdir $(SRCFILES)))))
 CC=gcc

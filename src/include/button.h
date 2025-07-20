@@ -19,5 +19,5 @@ typedef struct {
 } CRButton;
 
 CRButton *button_new();
-char *button_render(CRApp *app, CRButton *button);
+void button_render(void *_app, void *_w);
 #endif /* BUTTON_H__ */

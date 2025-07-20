@@ -3,32 +3,43 @@
 #include "include/cr.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_error.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <stdio.h>
 
-void mouse_down(void *_app, void *_w) {
-  SDL_assert(_app != NULL);
-  SDL_assert(_w != NULL);
-  CRButton *button = _w;
-  button->w.rendered = false;
+void click(void *_app, void *_widget) {
+  CRButton *button = _widget;
+  printf("I am pressed %s\n", button->text);
+}
+void trigger(void *_app, void *_widget) {
+  CRApp *app = _app;
+  CRButton *button = _widget;
+  SDL_assert(app != NULL);
+  SDL_assert(button != NULL);
+  SDL_Log("%d state changed\n", button->w.id);
 }
 
 CRButton *button_new() {
   CRButton *n = SDL_calloc(1, sizeof(*n));
   if (n) {
     n->w.type = WidgetButton;
-    n->w.mouse_down = mouse_down;
+    n->w.click = click;
+    n->w.render = button_render;
+    n->w.trigger = trigger;
   }
   return n;
 }
 
-char *button_render(CRApp *app, CRButton *button) {
-  char *value = NULL;
+void button_render(void *_app, void *_w) {
+  CRApp *app = _app;
+  CRButton *button = _w;
 
-  enum CRWidgetStates s = button->w.state;
+  enum CRWidgetStates s =
+      button->w.state.pressed ? WidgetPressedState : WidgetNormalState;
   if (button->colors[s].background == COLOR_NONE) {
     s = WidgetNormalState;
   }
@@ -77,5 +88,4 @@ char *button_render(CRApp *app, CRButton *button) {
     SDL_DestroyTexture(ttext);
     SDL_DestroySurface(text);
   }
-  return value;
 }
