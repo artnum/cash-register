@@ -10,6 +10,7 @@
 #include "include/color.h"
 #include "include/cr.h"
 #include "include/events.h"
+#include "include/input.h"
 #include "include/page.h"
 #include "include/registry.h"
 #include "include/widget.h"
@@ -87,6 +88,14 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
   ((CRButton *)n)->colors[WidgetFocusSate].background = COLOR_RED;
   ((CRButton *)n)->colors[WidgetFocusSate].text = COLOR_BLACK;
   ((CRButton *)n)->colors[WidgetFocusSate].border = COLOR_PALEGREEN;
+
+  n = widget_new(app, main_page, WidgetInput, NULL);
+  n->x = 14;
+  n->y = 2;
+  n->height = 1;
+  n->width = 10;
+  ((CRInput *)n)->color = COLOR_BLACK;
+  ((CRInput *)n)->text_color = COLOR_WHITE;
 
   return SDL_APP_CONTINUE;
 }

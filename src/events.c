@@ -74,6 +74,9 @@ void event_focus(CRApp *app, float x, float y) {
     for (CRWidgetList *item = app->current[CR_FOCUS_QUEUE]; item;
          item = item->next) {
       if (item->w->state.focused) {
+        if (item->w->blur) {
+          item->w->blur(app, item);
+        }
         item->w->state.focused = false;
         widget_list_append(&to_trigger, item->w);
       }
@@ -85,6 +88,9 @@ void event_focus(CRApp *app, float x, float y) {
   CRWidgetList *list = widget_get(app, x, y);
   for (CRWidgetList *item = list; item; item = item->next) {
     if (!item->w->state.focused) {
+      if (item->w->focus) {
+        item->w->focus(app, item);
+      }
       item->w->state.focused = true;
       widget_list_append(&to_trigger, item->w);
     }

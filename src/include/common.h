@@ -30,6 +30,7 @@ union u_CRWidgetState {
     bool clicked : 1;
     bool focused : 1;
     bool active : 1;
+    bool cursor : 1;
   };
   uint32_t raw;
 };
@@ -60,6 +61,8 @@ struct s_CRWidget {
   void (*render)(void *, void *);
   void (*pressed)(void *, void *);
   void (*click)(void *, void *);
+  void (*focus)(void *, void *);
+  void (*blur)(void *, void *);
 };
 
 typedef struct s_CRWidgetList CRWidgetList;

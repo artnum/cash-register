@@ -3,6 +3,7 @@
 #include "color.h"
 #include "cr.h"
 #include "widget.h"
+#include <SDL3/SDL_timer.h>
 
 typedef struct {
   CRWidget w;
@@ -10,6 +11,8 @@ typedef struct {
   enum Color border_color;
   enum Color text_color;
   char *content;
+  bool cursor_blink_state;
+  SDL_TimerID timer;
 } CRInput;
 
 CRInput *input_new();
